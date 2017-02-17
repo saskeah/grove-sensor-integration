@@ -1,31 +1,29 @@
-
-//LIBRARIES ETC
-
+//LIBRARIES
 #include <SPI.h>
 #include <SD.h>
 #include <ADXL335.h>
 #include <Wire.h>
 #include <ADXL345.h>
 
-//accelerometer(s)?
+//SENSOR DECLARATIONS
+
+//analog accelerometer 
 ADXL335 accelerometer;
 const int chipSelect = 4;
 
-ADXL345 adxl; //variable adxl is an instance of the ADXL345 library
+//digital accelerometer
+ADXL345 adxl;
 
 //heart rate monitor
-unsigned char counter;
-unsigned long temp[21];
-unsigned long sub;
-bool data_effect=true;
-unsigned int heart_rate;//the measurement result of heart rate
-const int max_heartpluse_duty = 2000;
-//you can change it follow your system's request.
-//2000 meams 2 seconds. System return error
-//if the duty overtrip 2 second.
+//unsigned char counter;
+//unsigned long temp[21];
+//unsigned long sub;
+//bool data_effect=true;
+//unsigned int heart_rate;//the measurement result of heart rate
+//const int max_heartpluse_duty = 2000; //max_heartpluse_duty is the max time between heartbeats before the system throws an error
 
 //loudness
-int val;
+int loudness;
 
 //SETUP CODE
 
@@ -102,8 +100,8 @@ Serial.begin(9600);
   //end digital accelerometer setup code
 
 //heart rate setup
-    arrayInit();
-    attachInterrupt(0, interrupt, RISING);//set interrupt 0,digital port 2
+    //arrayInit();
+    //attachInterrupt(0, interrupt, RISING);//set interrupt 0,digital port 2
     //end heart rate setup
 }
 
@@ -116,7 +114,7 @@ void loop()
   //loudness
   analogRead(0);
   delay(10);
-  val = analogRead(0);
+  loudness = analogRead(0);
   delay(500);
 
   //analog accelerometer
@@ -143,10 +141,10 @@ void loop()
   //digital accelerometer if you want to add these later
 
   //data shield
-  // make a string for assembling the data to log:
+  //make a string for assembling the data to log:
   String dataString = "";
 
-  // data shield reading analog accelerometer
+  //data shield reading analog accelerometer
   dataString += String(ax);
   dataString += ",";
   dataString += String(ay);
@@ -163,12 +161,11 @@ void loop()
   dataString += ",";
 
   //data sheild reading heart rate
-  dataString += heart_rate;
-  dataString += ",";
+  //dataString += heart_rate;
+  //dataString += ",";
 
   //data shield reading loudness
-  dataString += val;
-  dataString += ",";
+  dataString += loudness;
 
     // open the file. note that only one file can be open at a time,
     // so you have to close this one before opening another.
@@ -192,26 +189,26 @@ void loop()
 //FUNCTIONS
 
 //heart rate
-/*Function: calculate the heart rate*/
-void sum()
-{
- if(data_effect)
- {
- heart_rate=1200000/(temp[20]-temp[0]);//60*20*1000/20_total_time
+//*Function: calculate the heart rate*/
+//void sum()
+//{
+// if(data_effect)
+// {
+// heart_rate=1200000/(temp[20]-temp[0]);//60*20*1000/20_total_time
  //Serial.print("Heart_rate_is:\t");
  //Serial.println(heart_rate);
- }
- data_effect=1;//sign bit
-}
-/*Function: Interrupt service routine.Get the sigal from the external
-interrupt*/
-void interrupt()
-{
- temp[counter]=millis();
+// }
+// data_effect=1;//sign bit
+//}
+//*Function: Interrupt service routine.Get the sigal from the external
+//interrupt*/
+//void interrupt()
+//{
+// temp[counter]=millis();
  //Serial.println(counter,DEC);
  //Serial.println(temp[counter]);
- switch(counter)
- {
+// switch(counter)
+/* {
  case 0:
  sub=temp[counter]-temp[20];
  //Serial.println(sub);
@@ -241,9 +238,9 @@ void interrupt()
  data_effect=1;
  }
 
-}
+}*/
 /*Function: Initialization for the array(temp)*/
-void arrayInit()
+/*void arrayInit()
 {
  for(unsigned char i=0;i < 20;i ++)
  {
@@ -251,11 +248,7 @@ void arrayInit()
  }
  temp[20]=millis();
 }
-//end heart rate functions
-
-
-
-
+//end heart rate functions*/
 
 
 
