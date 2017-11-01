@@ -1,42 +1,83 @@
 //LIBRARIES
 #include <SPI.h>
-#include <SD.h>
-#include <ADXL335.h>
-#include <Wire.h>
-#include <ADXL345.h>
+#include <SD.h> //SD card
+#include <ADXL335.h> //analog accel
+#include <Wire.h> //I2C
+#include <ADXL345.h> //digital accel
+#include <DHT.h> //temp and humidity sensor
+#include <DHT_U.h> //temp and humidity sensor
+#include <Adafruit_Sensor.h> //temp and humidity sensor
+#include <Adafruit_BMP280.h> //barometer
+#include <Adafruit_TSL2561_U.h> //light
+#include <RTClib.h> //RTC
 
-//SENSOR DECLARATIONS
+//DEFINITIONS AND INSTANTIATIONS
 
-//analog accelerometer 
+//RTC def
+RTC_DS1307 RTC;
+
+//barometer def
+#define BMP_SCK 13
+#define BMP_MISO 12
+#define BMP_MOSI 11 
+#define BMP_CS 10
+
+//light def
+Adafruit_TSL2561_Unified tsl = Adafruit_TSL2561_Unified(TSL2561_ADDR_LOW, 12345);
+
+//baro def
+Adafruit_BMP280 bme;
+
+//temp and hum def
+#define DHTPIN 5     // what digital pin we're connected to
+#define DHTTYPE DHT11   // DHT 11
+DHT dht(DHTPIN, DHTTYPE);
+
+//analog accelerometer def
 ADXL335 accelerometer;
 const int chipSelect = 4;
 
-//digital accelerometer
+//digital accelerometer def
 ADXL345 adxl;
 
-//heart rate monitor
-//unsigned char counter;
-//unsigned long temp[21];
-//unsigned long sub;
-//bool data_effect=true;
-//unsigned int heart_rate;//the measurement result of heart rate
-//const int max_heartpluse_duty = 2000; //max_heartpluse_duty is the max time between heartbeats before the system throws an error
-
-//loudness
+//loudness def
 int loudness;
+
+//loudness indicator light def
+int LLED = 2;
+
+//SD indicator light def
+int SDLED = 3;
 
 //SETUP CODE
 
 void setup()
 {
 Serial.begin(9600);
+
+//loudness light setup
+pinMode(LLED, OUTPUT);
+
+//SD light setup
+pinMode(SDLED, OUTPUT);
+
+//RTC setup
+Wire.begin();
+RTC.begin();
+
+//light setup
+tsl.enableAutoRange(true);
+tsl.setIntegrationTime(TSL2561_INTEGRATIONTIME_13MS);
+tsl.begin();
+
+//baro setup
+  bme.begin();
+
+//temp hum setup
+  dht.begin();
   
 //analog accel setup
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for Leonardo only
-    // from analog accelerometer code
-    accelerometer.begin();
-  }
+  accelerometer.begin();
 
 //data shield setup
   Serial.print("Initializing SD card...");
@@ -44,10 +85,12 @@ Serial.begin(9600);
   // see if the card is present and can be initialized:
   if (!SD.begin(chipSelect)) {
     Serial.println("Card failed, or not present");
+    digitalWrite(SDLED, LOW);
     // don't do anything more:
     return;
   }
   Serial.println("card initialized.");
+  digitalWrite(SDLED, HIGH);
   //end data shield setup code
 
 //digital accel setup
@@ -99,27 +142,40 @@ Serial.begin(9600);
   adxl.setInterrupt( ADXL345_INT_INACTIVITY_BIT, 1);
   //end digital accelerometer setup code
 
-//heart rate setup
-    //arrayInit();
-    //attachInterrupt(0, interrupt, RISING);//set interrupt 0,digital port 2
-    //end heart rate setup
 }
-
 
 //LOOP
 
 void loop()
 {
 
+  //RTC
+  DateTime now = RTC.now(); 
+  
+  //light
+  sensors_event_t event;
+  tsl.getEvent(&event);
+  
+  //temp and hum
+  // Reading temperature or humidity takes about 250 milliseconds!
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+
   //loudness
-  analogRead(0);
-  delay(10);
-  loudness = analogRead(0);
-  delay(500);
+  loudness = analogRead(3);
+
+    //loudness indicator light
+    if(loudness >= 10) {
+     digitalWrite(LLED, HIGH);
+  } else {
+     digitalWrite(LLED, LOW);
+  }
 
   //analog accelerometer
-  int x,y,z;
-  accelerometer.getXYZ(&x,&y,&z);
+  //int x,y,z;
+  //accelerometer.getXYZ(&x,&y,&z);
   float ax,ay,az;
   accelerometer.getAcceleration(&ax,&ay,&az);
   //end analog accelerometer code
@@ -136,13 +192,41 @@ void loop()
   d_ay = dxdydz[1];
   daz = dxdydz[2];
   //end digital accelerometer code
-  //in File>Examples>Digital Accelerometer>Demo Code, 
-  //there is example code for other types of functionality for the 
-  //digital accelerometer if you want to add these later
+  /*in File>Examples>Digital Accelerometer>Demo Code, 
+  there is example code for other types of functionality for the 
+  digital accelerometer if you want to add these later*/
 
   //data shield
   //make a string for assembling the data to log:
   String dataString = "";
+
+  //data sheild reading RTC
+  dataString += String(now.year());
+  dataString += "/";
+  dataString += String(now.month());
+  dataString += "/";
+  dataString += String(now.day());
+  dataString += " ";
+  dataString += String(now.hour());
+  dataString += ":";
+  dataString += String(now.minute());
+  dataString += ":";
+  dataString += String(now.second());
+  dataString += ",";
+
+  //data sheild reading light
+  dataString += String(event.light);
+  dataString += ",";
+
+  //data shield reading temp and hum
+  dataString += String(h);
+  dataString += ",";
+  dataString += String(t);
+  dataString += ",";
+
+  //data shield reading baro
+  dataString += String(bme.readPressure());
+  dataString += ",";
 
   //data shield reading analog accelerometer
   dataString += String(ax);
@@ -160,10 +244,6 @@ void loop()
   dataString += String(daz);
   dataString += ",";
 
-  //data sheild reading heart rate
-  //dataString += heart_rate;
-  //dataString += ",";
-
   //data shield reading loudness
   dataString += loudness;
 
@@ -176,80 +256,14 @@ void loop()
     dataFile.println(dataString);
     dataFile.close();
     // print to the serial port too:
+    //keeping this on purpose, so I can see the data without pulling out the SD card!
     Serial.println(dataString);
     }
     // if the file isn't open, pop up an error:
     else {
     Serial.println("error opening datalog.txt");
     }
+
+    //1 second delay
     delay(1000);
 }
-
-
-//FUNCTIONS
-
-//heart rate
-//*Function: calculate the heart rate*/
-//void sum()
-//{
-// if(data_effect)
-// {
-// heart_rate=1200000/(temp[20]-temp[0]);//60*20*1000/20_total_time
- //Serial.print("Heart_rate_is:\t");
- //Serial.println(heart_rate);
-// }
-// data_effect=1;//sign bit
-//}
-//*Function: Interrupt service routine.Get the sigal from the external
-//interrupt*/
-//void interrupt()
-//{
-// temp[counter]=millis();
- //Serial.println(counter,DEC);
- //Serial.println(temp[counter]);
-// switch(counter)
-/* {
- case 0:
- sub=temp[counter]-temp[20];
- //Serial.println(sub);
- break;
- default:
- sub=temp[counter]-temp[counter-1];
- //Serial.println(sub);
- break;
- }
- if(sub>max_heartpluse_duty)//set 2 seconds as max heart pluse duty
- {
- data_effect=0;//sign bit
- counter=0;
- //Serial.println("Heart rate measure error,test will restart!" );
- arrayInit();
- }
- if (counter==20&&data_effect)
- {
- counter=0;
- sum();
- }
- else if(counter!=20&&data_effect)
- counter++;
- else
- {
- counter=0;
- data_effect=1;
- }
-
-}*/
-/*Function: Initialization for the array(temp)*/
-/*void arrayInit()
-{
- for(unsigned char i=0;i < 20;i ++)
- {
- temp[i]=0;
- }
- temp[20]=millis();
-}
-//end heart rate functions*/
-
-
-
-
